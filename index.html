@@ -1,0 +1,281 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>SMN PackFlow Prototype</title>
+<style>
+:root{--bg:#0e1116;--card:#171b22;--card2:#202631;--text:#f5f7fa;--muted:#aab2bf;--green:#36c66b;--yellow:#ffc94a;--red:#ff5b5b;--blue:#55a7ff;--line:#2b3340}
+*{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+header{position:sticky;top:0;z-index:4;background:rgba(14,17,22,.95);backdrop-filter:blur(14px);border-bottom:1px solid var(--line);padding:calc(12px + env(safe-area-inset-top)) 16px 12px}
+.brand{font-weight:900;font-size:22px}.brand b{color:var(--yellow)} .sub{font-size:12px;color:var(--muted)}
+main{max-width:820px;margin:auto;padding:16px 16px calc(90px + env(safe-area-inset-bottom))}
+.screen{display:none}.screen.active{display:block}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.wide{grid-column:1/-1}
+.card,.tile{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:16px}
+.tile{min-height:116px;font-weight:800;font-size:18px;text-align:left}.tile span{display:block;font-size:30px;margin-bottom:9px}
+h1{font-size:26px;margin:5px 0 16px}h2{font-size:19px;margin:20px 0 10px}h3{margin:0 0 8px}
+button{border:0;border-radius:14px;padding:14px 16px;font:inherit;font-weight:800;cursor:pointer;background:var(--blue);color:white}
+button.secondary{background:var(--card2);border:1px solid var(--line)}button.green{background:var(--green);color:#08160e}button.yellow{background:var(--yellow);color:#241b00}button.red{background:var(--red)}
+.row{display:flex;gap:10px;align-items:center}.row>*{flex:1}.stack{display:grid;gap:10px}
+input,select,textarea{width:100%;background:#11151b;color:var(--text);border:1px solid #343d4b;border-radius:12px;padding:13px;font:inherit}
+label{font-size:13px;color:var(--muted);display:grid;gap:6px}
+.badge{display:inline-flex;padding:6px 9px;border-radius:999px;font-size:12px;font-weight:900}.g{background:#173d26;color:#73e999}.y{background:#493b12;color:#ffe07e}.r{background:#492020;color:#ff9999}
+.kpi{font-size:28px;font-weight:900}.muted{color:var(--muted);font-size:13px}.sep{height:1px;background:var(--line);margin:14px 0}
+.photo{width:100%;max-height:220px;object-fit:cover;border-radius:14px;border:1px solid var(--line);display:none}.photo.show{display:block}
+.bottom{position:fixed;bottom:0;left:0;right:0;background:rgba(14,17,22,.96);backdrop-filter:blur(14px);border-top:1px solid var(--line);padding:8px 12px calc(8px + env(safe-area-inset-bottom));display:flex;gap:8px;z-index:5}.bottom button{padding:11px 8px;font-size:11px;background:transparent;color:var(--muted)}.bottom button b{display:block;color:white;font-size:20px}
+.statusline{display:flex;justify-content:space-between;gap:10px;align-items:center}
+.progress{height:10px;background:#242b35;border-radius:999px;overflow:hidden}.progress>div{height:100%;background:var(--green);width:0}
+.toast{position:fixed;left:50%;bottom:90px;transform:translateX(-50%);background:#fff;color:#111;padding:10px 14px;border-radius:12px;font-weight:800;display:none;z-index:10}
+table{width:100%;border-collapse:collapse;font-size:13px}td,th{padding:9px;border-bottom:1px solid var(--line);text-align:left}
+.check{display:flex;gap:10px;align-items:flex-start;background:#12171e;padding:12px;border-radius:12px}.check input{width:auto;margin-top:3px}
+#labelPreview{background:white;color:#111;border-radius:14px;padding:18px;font-family:monospace}
+.bigweight{font-size:48px;font-weight:900;text-align:center;padding:14px 0}.bigweight.ok{color:var(--green)}.bigweight.warn{color:var(--yellow)}.bigweight.bad{color:var(--red)}
+@media(max-width:430px){.grid{grid-template-columns:1fr 1fr}.tile{font-size:15px;min-height:106px}}
+@media print{header,.bottom,.noprint{display:none!important}body{background:white;color:black}main{padding:0}.screen{display:none!important}#screen-label{display:block!important}#labelPreview{border:1px solid #000;width:70mm;border-radius:0}}
+</style>
+</head>
+<body>
+<header><div class="brand"><b>SMN</b> PackFlow</div><div class="sub">Prototype 0.1 · Scan-first · Ampellogik · Chargenakte</div></header>
+
+<main>
+<section id="screen-home" class="screen active">
+  <h1>Guten Morgen 👋</h1>
+  <div class="card">
+    <div class="statusline"><div><b>PackFlow Cockpit</b><div class="muted">Lokaler Demo-Datenbestand</div></div><span class="badge g">🟢 SYSTEM OK</span></div>
+    <div class="sep"></div>
+    <div class="grid">
+      <div><div class="kpi" id="kpiRaw">0</div><div class="muted">Rohwaren-Gebinde</div></div>
+      <div><div class="kpi" id="kpiOpen">0</div><div class="muted">offene Gebinde</div></div>
+      <div><div class="kpi" id="kpiProd">0</div><div class="muted">Produktionschargen</div></div>
+      <div><div class="kpi" id="kpiAlerts">0</div><div class="muted">Warnungen/Sperren</div></div>
+    </div>
+  </div>
+  <h2>Arbeitsbereiche</h2>
+  <div class="grid">
+    <button class="tile" onclick="go('incoming')"><span>📦</span>Wareneingang</button>
+    <button class="tile" onclick="go('storage')"><span>🏷️</span>Rohwarenlager</button>
+    <button class="tile" onclick="go('order')"><span>🥜</span>Produktion</button>
+    <button class="tile" onclick="go('trace')"><span>🔎</span>Charge suchen</button>
+    <button class="tile" onclick="go('label')"><span>🖨️</span>Direktdruck</button>
+    <button class="tile" onclick="go('help')"><span>📘</span>Mitarbeiter-Hilfe</button>
+  </div>
+</section>
+
+<section id="screen-incoming" class="screen">
+ <h1>📦 Neue Lieferung</h1>
+ <div class="stack">
+  <label>Lieferant<input id="inSupplier" value="Virgin Nuts B.V."></label>
+  <label>Produkt<select id="inProduct"><option>Honey Sea Salt Almonds</option><option>Honey Garlic Lemon Pepper Peanuts</option><option>Honey Lemon Cashews</option></select></label>
+  <div class="row"><label>Lieferanten-LOT<input id="inLot" placeholder="z. B. VN260818A"></label><label>MHD<input id="inMhd" type="date"></label></div>
+  <div class="row"><label>Anzahl Kartons<input id="inBoxes" type="number" min="1" value="5"></label><label>kg je Karton<input id="inKg" type="number" step=".01" value="12.5"></label></div>
+  <div class="card">
+   <h3>📸 Pflichtnachweis</h3><div class="muted">Lieferschein und Kartonetikett direkt fotografieren.</div>
+   <div class="row" style="margin-top:10px"><label><button class="secondary" type="button" onclick="document.getElementById('photoDelivery').click()">Lieferschein</button><input hidden id="photoDelivery" type="file" accept="image/*" capture="environment" onchange="preview(this,'prevDelivery')"></label><label><button class="secondary" type="button" onclick="document.getElementById('photoBox').click()">Kartonetikett</button><input hidden id="photoBox" type="file" accept="image/*" capture="environment" onchange="preview(this,'prevBox')"></label></div>
+   <img id="prevDelivery" class="photo"><img id="prevBox" class="photo">
+  </div>
+  <button class="green" onclick="saveIncoming()">✅ Angaben bestätigen & einlagern</button>
+ </div>
+</section>
+
+<section id="screen-storage" class="screen">
+ <h1>🏷️ Rohwarenlager</h1>
+ <div id="storageList" class="stack"></div>
+</section>
+
+<section id="screen-order" class="screen">
+ <h1>🥜 Produktionsauftrag</h1>
+ <div class="stack">
+  <label>Produkt<select id="poProduct"><option>Honey Sea Salt Almonds</option><option>Honey Garlic Lemon Pepper Peanuts</option><option>Honey Lemon Cashews</option></select></label>
+  <div class="row"><label>Packungsgröße (g)<select id="poSize"><option>60</option><option selected>150</option></select></label><label>Soll-Stückzahl<input id="poCount" type="number" value="300"></label></div>
+  <button onclick="prepareOrder()">Auftrag vorbereiten</button>
+  <div id="orderPlan"></div>
+ </div>
+</section>
+
+<section id="screen-start" class="screen">
+ <h1>🧼 Arbeitsplatzfreigabe</h1>
+ <div class="card"><div class="muted">Charge</div><b id="startCharge"></b></div>
+ <div class="stack" style="margin-top:12px">
+  <label class="check"><input type="checkbox" class="wscheck"> Arbeitsplatz vollständig gereinigt</label>
+  <label class="check"><input type="checkbox" class="wscheck"> Keine Fremdprodukte / Fremdverpackungen</label>
+  <label class="check"><input type="checkbox" class="wscheck"> Richtige Beutel und Rohware bereit</label>
+  <label class="check"><input type="checkbox" class="wscheck"> Waage kontrolliert / betriebsbereit</label>
+  <div class="card"><b>📸 Live-Foto ist Pflicht</b><div class="muted">Ohne Foto kein Produktionsstart.</div>
+    <button class="secondary" style="margin-top:10px" onclick="document.getElementById('wsPhoto').click()">📷 Arbeitsplatz fotografieren</button>
+    <input hidden id="wsPhoto" type="file" accept="image/*" capture="environment" onchange="preview(this,'wsPrev');state.wsPhoto=true;save()">
+    <img id="wsPrev" class="photo">
+  </div>
+  <button class="green" onclick="startProduction()">▶️ Produktion starten</button>
+ </div>
+</section>
+
+<section id="screen-run" class="screen">
+ <div class="statusline"><h1 style="margin-bottom:8px">🥜 Abfüllung</h1><span class="badge g">🟢 LÄUFT</span></div>
+ <div class="card">
+  <b id="runProduct"></b><div class="muted" id="runCharge"></div>
+  <div class="bigweight ok" id="weightDisplay">150.0 g</div>
+  <div class="muted" style="text-align:center">Waagen-Simulation · später echte Schnittstelle</div>
+  <input id="simWeight" type="range" min="140" max="165" step=".1" value="150" oninput="weightChanged(this.value)">
+  <div class="sep"></div>
+  <div class="statusline"><b>Stückzahl</b><b id="runCount">0 / 0</b></div>
+  <div class="progress"><div id="runProgress"></div></div>
+ </div>
+ <div class="grid" style="margin-top:12px">
+  <button class="green" onclick="acceptBag()">⚖️ Beutel OK</button>
+  <button class="secondary" onclick="boxChange()">📦 Kartonwechsel</button>
+  <button class="yellow" onclick="toast('Produktion pausiert (Demo)')">⏸ Pause</button>
+  <button class="red" onclick="problem()">⚠️ Problem</button>
+  <button class="wide secondary" onclick="finishProduction()">■ Charge beenden</button>
+ </div>
+</section>
+
+<section id="screen-finish" class="screen">
+ <h1>🏁 Abschluss & Reinigung</h1>
+ <div id="finishSummary" class="card"></div>
+ <div class="stack" style="margin-top:12px">
+   <label class="check"><input type="checkbox" class="endcheck"> Rohware verschlossen / zurückgelagert</label>
+   <label class="check"><input type="checkbox" class="endcheck"> Arbeitsplatz gereinigt</label>
+   <label class="check"><input type="checkbox" class="endcheck"> Produktionsbereich kontrolliert</label>
+   <div class="card"><b>📸 Abschlussfoto ist Pflicht</b>
+     <button class="secondary" style="margin-top:10px" onclick="document.getElementById('endPhoto').click()">📷 Abschlussfoto aufnehmen</button>
+     <input hidden id="endPhoto" type="file" accept="image/*" capture="environment" onchange="preview(this,'endPrev');state.endPhoto=true;save()">
+     <img id="endPrev" class="photo">
+   </div>
+   <button class="green" onclick="releaseBatch()">✅ Charge zur Freigabe geben</button>
+ </div>
+</section>
+
+<section id="screen-label" class="screen">
+ <h1>🖨️ Direktdruck</h1>
+ <div class="card noprint"><b>PackFlow Print Gate</b><div class="muted">Druckdaten kommen ausschließlich aus einer aktiven/abgeschlossenen Charge.</div></div>
+ <div id="labelPreview" style="margin-top:12px"><b>SMN PACKFLOW</b><br><br>MHD: --<br>LOT: --<br><br>[ DataMatrix / QR später ]</div>
+ <button class="noprint" style="margin-top:12px" onclick="window.print()">🖨️ Druckvorschau</button>
+ <div class="muted noprint" style="margin-top:10px">Im Prototyp Browserdruck. Später Übergabe an Direktdrucker.</div>
+</section>
+
+<section id="screen-trace" class="screen">
+ <h1>🔎 Rückverfolgung</h1>
+ <label>LOT / PackFlow-ID / Produktionscharge<input id="traceQuery" oninput="renderTrace()" placeholder="Suchbegriff"></label>
+ <div id="traceResults" class="stack" style="margin-top:12px"></div>
+</section>
+
+<section id="screen-help" class="screen">
+ <h1>📘 Mitarbeiter-Hilfe</h1>
+ <div class="stack">
+  <div class="card"><h3>🟢 Grün</h3><div>Alles in Ordnung. Arbeit darf fortgesetzt werden.</div></div>
+  <div class="card"><h3>🟡 Gelb</h3><div>Beachten oder priorisieren. PackFlow zeigt die notwendige Aktion.</div></div>
+  <div class="card"><h3>🔴 Rot</h3><div>STOPP. Ware/Prozess nicht eigenmächtig freigeben.</div></div>
+  <div class="card"><h3>📦 Wareneingang</h3><div>Lieferung prüfen, Fotos aufnehmen, LOT/MHD bestätigen. Beschädigte Ware über „Problem“ sperren.</div></div>
+  <div class="card"><h3>🥜 Produktion</h3><div>Nur die von PackFlow vorgeschlagene Rohware verwenden. Vor Start und nach Abschluss ist ein Live-Foto Pflicht.</div></div>
+  <div class="card"><h3>⚠️ Unsicher?</h3><div>Nicht improvisieren. Prozess pausieren, Problem dokumentieren und verantwortliche Person informieren.</div></div>
+ </div>
+</section>
+</main>
+
+<div class="bottom">
+ <button onclick="go('home')"><b>⌂</b>Start</button>
+ <button onclick="go('incoming')"><b>📦</b>Eingang</button>
+ <button onclick="go('storage')"><b>🏷️</b>Lager</button>
+ <button onclick="go('order')"><b>🥜</b>Produktion</button>
+ <button onclick="go('trace')"><b>🔎</b>Suche</button>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const defaultState={raw:[],batches:[],active:null,wsPhoto:false,endPhoto:false,employee:"Demo Mitarbeiter"};
+let state=JSON.parse(localStorage.getItem("smnPackFlow")||"null")||defaultState;
+function save(){localStorage.setItem("smnPackFlow",JSON.stringify(state));updateKPIs()}
+function id(prefix){let d=new Date(),p=n=>String(n).padStart(2,"0");return `${prefix}-${d.getFullYear()}${p(d.getMonth()+1)}${p(d.getDate())}-${String(Date.now()).slice(-5)}`}
+function go(name){document.querySelectorAll(".screen").forEach(x=>x.classList.remove("active"));document.getElementById("screen-"+name).classList.add("active");if(name==="storage")renderStorage();if(name==="trace")renderTrace();if(name==="label")renderLabel();window.scrollTo(0,0)}
+function toast(t){let e=document.getElementById("toast");e.textContent=t;e.style.display="block";setTimeout(()=>e.style.display="none",1800)}
+function preview(inp,target){let f=inp.files[0];if(!f)return;let r=new FileReader();r.onload=e=>{let im=document.getElementById(target);im.src=e.target.result;im.classList.add("show")};r.readAsDataURL(f)}
+function updateKPIs(){
+ document.getElementById("kpiRaw").textContent=state.raw.length;
+ document.getElementById("kpiOpen").textContent=state.raw.filter(x=>x.status==="OFFEN").length;
+ document.getElementById("kpiProd").textContent=state.batches.length;
+ document.getElementById("kpiAlerts").textContent=state.raw.filter(x=>x.status==="GESPERRT").length;
+}
+function saveIncoming(){
+ let lot=inLot.value.trim(),mhd=inMhd.value,boxes=+inBoxes.value,kg=+inKg.value;
+ if(!lot||!mhd||!boxes||!kg){toast("Bitte LOT, MHD und Mengen ausfüllen");return}
+ if(!photoDelivery.files[0]||!photoBox.files[0]){toast("Pflichtfotos fehlen");return}
+ let receipt=id("SMN-WE");
+ for(let i=1;i<=boxes;i++)state.raw.push({id:`${receipt}-${String(i).padStart(2,"0")}`,receipt,supplier:inSupplier.value,product:inProduct.value,lot,mhd,kg,remaining:kg,status:"GESCHLOSSEN",location:"A-01",received:new Date().toISOString()});
+ save();toast(`${boxes} Kartons erfasst`);go("storage")
+}
+function mhdClass(mhd){
+ let days=(new Date(mhd)-new Date())/86400000;
+ if(days<30)return ["r","🔴"];
+ if(days<90)return ["y","🟡"];
+ return ["g","🟢"];
+}
+function renderStorage(){
+ let el=document.getElementById("storageList");
+ if(!state.raw.length){el.innerHTML='<div class="card muted">Noch keine Rohware erfasst.</div>';return}
+ let sorted=[...state.raw].sort((a,b)=>new Date(a.mhd)-new Date(b.mhd));
+ el.innerHTML=sorted.map(x=>{let c=mhdClass(x.mhd);return `<div class="card"><div class="statusline"><b>${x.product}</b><span class="badge ${c[0]}">${c[1]} ${x.status}</span></div><div class="muted">${x.id}</div><div class="sep"></div><b>${x.remaining.toFixed(2)} kg</b> · LOT ${x.lot}<br><span class="muted">MHD ${x.mhd} · Lager ${x.location}</span></div>`}).join("");
+}
+function productCode(p){return p.includes("Almond")?"HSA":p.includes("Garlic")?"HGLP":"HLC"}
+function prepareOrder(){
+ let p=poProduct.value,size=+poSize.value,count=+poCount.value,need=size*count/1000;
+ let available=state.raw.filter(x=>x.product===p&&x.status!=="GESPERRT"&&x.remaining>0).sort((a,b)=>new Date(a.mhd)-new Date(b.mhd));
+ let total=available.reduce((s,x)=>s+x.remaining,0);
+ let plan=document.getElementById("orderPlan");
+ if(total<need){plan.innerHTML=`<div class="card" style="margin-top:12px"><span class="badge r">🔴 NICHT GENUG ROHWARE</span><p>Benötigt ${need.toFixed(2)} kg · verfügbar ${total.toFixed(2)} kg</p></div>`;return}
+ let batch=id(`SMN-${productCode(p)}`);
+ state.active={batch,product:p,size,count,done:0,started:null,status:"GEPLANT",need,sourceIds:available.map(x=>x.id)};
+ save();
+ plan.innerHTML=`<div class="card" style="margin-top:12px"><span class="badge g">🟢 MATERIAL VERFÜGBAR</span><h3 style="margin-top:12px">${batch}</h3><div>${count} × ${size} g = <b>${need.toFixed(2)} kg</b></div><div class="muted">FEFO: ${available[0].id} zuerst</div><button class="green" style="margin-top:12px" onclick="goStart()">Arbeitsplatz vorbereiten</button></div>`
+}
+function goStart(){startCharge.textContent=state.active.batch;state.wsPhoto=false;save();go("start")}
+function startProduction(){
+ if(![...document.querySelectorAll(".wscheck")].every(x=>x.checked)){toast("Start-Checkliste unvollständig");return}
+ if(!state.wsPhoto){toast("Pflichtfoto fehlt");return}
+ state.active.started=new Date().toISOString();state.active.status="LÄUFT";save();
+ runProduct.textContent=state.active.product;runCharge.textContent=state.active.batch;runCount.textContent=`0 / ${state.active.count}`;runProgress.style.width="0%";go("run")
+}
+function weightChanged(v){
+ let e=weightDisplay,n=+v,target=state.active?.size||150;e.textContent=n.toFixed(1)+" g";
+ e.className="bigweight "+(Math.abs(n-target)<=2?"ok":Math.abs(n-target)<=4?"warn":"bad")
+}
+function acceptBag(){
+ if(!state.active)return;let w=+simWeight.value,target=state.active.size;
+ if(Math.abs(w-target)>4){toast("🔴 Gewicht außerhalb Demo-Grenze");return}
+ state.active.done=Math.min(state.active.count,state.active.done+1);save();
+ runCount.textContent=`${state.active.done} / ${state.active.count}`;runProgress.style.width=(state.active.done/state.active.count*100)+"%";
+ if(state.active.done===state.active.count)toast("Soll-Stückzahl erreicht")
+}
+function boxChange(){toast("Nächsten FEFO-Karton scannen (Demo)")}
+function problem(){toast("🔴 Produktion pausiert – Problemakte angelegt");if(state.active){state.active.status="PAUSIERT";save()}}
+function finishProduction(){
+ if(!state.active)return;
+ finishSummary.innerHTML=`<b>${state.active.batch}</b><div class="sep"></div>Produziert: <b>${state.active.done}</b> / ${state.active.count}<br>Produkt: ${state.active.product}<br>Packung: ${state.active.size} g`;
+ state.endPhoto=false;save();go("finish")
+}
+function releaseBatch(){
+ if(![...document.querySelectorAll(".endcheck")].every(x=>x.checked)){toast("Abschluss-Checkliste unvollständig");return}
+ if(!state.endPhoto){toast("Abschlussfoto fehlt");return}
+ let a=state.active;a.status="WARTET_AUF_FREIGABE";a.finished=new Date().toISOString();
+ // Simulierter Verbrauch nach Ist-Stückzahl, FEFO aus Rohware abbuchen:
+ let need=a.done*a.size/1000;
+ let sources=state.raw.filter(x=>a.sourceIds.includes(x.id)).sort((x,y)=>new Date(x.mhd)-new Date(y.mhd));
+ a.used=[];
+ for(let x of sources){if(need<=0)break;let use=Math.min(need,x.remaining);x.remaining-=use;need-=use;if(use>0){a.used.push({id:x.id,kg:use,lot:x.lot});x.status=x.remaining>0?"OFFEN":"VERBRAUCHT"}}
+ state.batches.push(a);state.active=null;save();toast("Charge dokumentiert");go("label")
+}
+function renderLabel(){
+ let b=state.batches[state.batches.length-1]||state.active;if(!b){labelPreview.innerHTML="<b>SMN PACKFLOW</b><br><br>Keine Charge ausgewählt.";return}
+ let mhd="--";let src=state.raw.filter(x=>(b.sourceIds||[]).includes(x.id));if(src.length)mhd=src.sort((a,c)=>new Date(a.mhd)-new Date(c.mhd))[0].mhd;
+ labelPreview.innerHTML=`<b>${b.product}</b><br><br>MHD: ${mhd}<br>LOT: ${b.batch}<br><br>Netto: ${b.size} g<br><br><small>PackFlow Print Gate · ${b.status}</small>`
+}
+function renderTrace(){
+ let q=(document.getElementById("traceQuery")?.value||"").toLowerCase(),el=document.getElementById("traceResults");if(!el)return;
+ let rs=state.raw.filter(x=>!q||JSON.stringify(x).toLowerCase().includes(q)).slice(0,10).map(x=>`<div class="card"><b>Rohware ${x.id}</b><div>${x.product}</div><div class="muted">LOT ${x.lot} · ${x.remaining.toFixed(2)} kg · ${x.status}</div></div>`);
+ let bs=state.batches.filter(x=>!q||JSON.stringify(x).toLowerCase().includes(q)).slice(0,10).map(x=>`<div class="card"><b>Produktion ${x.batch}</b><div>${x.product} · ${x.done} × ${x.size} g</div><div class="muted">${x.status} · Rohware: ${(x.used||[]).map(u=>u.lot).join(", ")}</div></div>`);
+ el.innerHTML=[...bs,...rs].join("")||'<div class="card muted">Keine Treffer.</div>'
+}
+updateKPIs();
+</script>
+</body>
+</html>
